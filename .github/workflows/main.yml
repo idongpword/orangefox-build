@@ -1,101 +1,42 @@
-name: OrangeFox Automatic Cloud Extractor & Compiler
+name: OrangeFox Automated Recovery Build Pipeline
 
 on:
   workflow_dispatch:
 
-env:
-  MANIFEST_URL: "https://github.com"
-  MANIFEST_BRANCH: "12.1"
-  DEVICE_NAME: "wp19pro"
-  DEVICE_PATH: "device/oukitel/wp19pro"
-  DEVICE_REPO: "https://github.com"
-  DEVICE_BRANCH: "fox_12.1"
-
 jobs:
-  build_recovery:
+  compile_recovery:
     runs-on: ubuntu-22.04
     steps:
-    - name: Free Virtual Space
-      run: |
-        sudo rm -rf /usr/share/dotnet /etc/mysql /etc/php /usr/local/lib/android /opt/ghc
-        sudo apt-get clean
+    - name: Checkout Workspace Configs
+      uses: actions/checkout@v4
 
-    - name: Prepare Compilation Toolchain
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 wget
-
-    - name: Pull Core Partition Blocks
-      run: |
-        mkdir -p ~/cloud_assets && cd ~/cloud_assets
-        curl -L "https://workers.dev" -o boot.img
-        curl -L "https://workers.dev" -o vendor_boot.img
-
-    - name: Native Python Kernel Extraction
-      run: |
-        cd ~/cloud_assets
-        python3 -c '
-        import struct
-        with open("boot.img", "rb") as f:
-            header = f.read(4096)
-            kernel_size = struct.unpack("<I", header[12:16])[0]
-            print(f"Detected Kernel Size: {kernel_size} bytes")
-            f.seek(4096)
-            kernel_data = f.read(kernel_size)
-        with open("kernel", "wb") as out:
-            out.write(kernel_data)
-        '
-        mkdir -p ~/extracted_kernel/
-        cp kernel ~/extracted_kernel/kernel
-
-    - name: Sync OrangeFox Core Source Code
-      run: |
-        # Create a local user bin directory that has full write/update permissions
-        mkdir -p ~/bin
-        curl -sL https://googleapis.com > ~/bin/repo
-        chmod a+x ~/bin/repo
-        export PATH=~/bin:$PATH
+    - name: Run Dedicated Recovery Builder
+      uses: Sushrut1101/AOSP-Recovery-Builder@v1
+      with:
+        MANIFEST_URL: 'https://github.com'
+        MANIFEST_BRANCH: '12.1'
+        DEVICE_TREE_URL: 'https://github.com'
+        DEVICE_TREE_BRANCH: 'fox_12.1'
+        DEVICE_NAME: 'wp19pro'
+        DEVICE_PATH: 'device/oukitel/wp19pro'
+        BUILD_TARGET: 'vendorboot' # Explicitly tells the builder to output a modern vendor_boot partition image
         
-        mkdir -p ~/fox_src && cd ~/fox_src
-        git config --global user.name "CloudBuilder"
-        git config --global user.email "cloud@fox.local"
-        
-        # Initialize and sync using the full standalone mirror setup path
-        ~/bin/repo init --depth=1 -u ${{ env.MANIFEST_URL }} -b ${{ env.MANIFEST_BRANCH }}
-        ~/bin/repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
-
-    - name: Inject Device Tree & Extracted Kernel
+    - name: Inject Physical Display Specifications
       run: |
-        git clone -b ${{ env.DEVICE_BRANCH }} ${{ env.DEVICE_REPO }} ~/fox_src/${{ env.DEVICE_PATH }}
-        cp ~/cloud_assets/kernel ~/fox_src/${{ env.DEVICE_PATH }}/prebuilt/kernel
+        # Hardcoding your exact device metrics cleanly before compiling
+        TARGET_CONFIG="/home/runner/work/orangefox-build/orangefox-build/workspace/device/oukitel/wp19pro/BoardConfig.mk"
+        if [ -f "$TARGET_CONFIG" ]; then
+          sed -i '/TW_THEME/d' "$TARGET_CONFIG"
+          {
+            echo "TW_THEME := portrait_hdpi"
+            echo "TARGET_SCREEN_WIDTH := 1080"
+            echo "TARGET_SCREEN_HEIGHT := 2460"
+            echo "TW_DEVICE_VERSION := Oukitel_WP19_Pro_FOX"
+          } >> "$TARGET_CONFIG"
+        fi
 
-    - name: Hardcode Physical Screen and Storage Parameters
-      run: |
-        # Set target panel sizing definitions explicitly for your 1080x2460 display resolution configurations
-        TARGET_CONFIG="~/fox_src/${{ env.DEVICE_PATH }}/BoardConfig.mk"
-        eval TARGET_CONFIG=$TARGET_CONFIG
-        echo "Injecting hardware specs into $TARGET_CONFIG..."
-        sed -i '/TW_THEME/d' "$TARGET_CONFIG"
-        {
-          echo "TW_THEME := portrait_hdpi"
-          echo "TARGET_SCREEN_WIDTH := 1080"
-          echo "TARGET_SCREEN_HEIGHT := 2460"
-          echo "TW_DEVICE_VERSION := Oukitel_WP19_Pro_FOX"
-        } >> "$TARGET_CONFIG"
-
-    - name: Execute OrangeFox Compilation
-      run: |
-        cd ~/fox_src
-        source build/envsetup.sh
-        export ALLOW_MISSING_DEPENDENCIES=true
-        export FOX_REPLACE_TOOLBOX=1
-        export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
-        
-        lunch fox_${{ env.DEVICE_NAME }}-eng || lunch omni_${{ env.DEVICE_NAME }}-eng
-        make vendorbootimage -j$(nproc --all)
-
-    - name: Export Working Bootable Image Artifact
+    - name: Export Final Flashable Artifact Image
       uses: actions/upload-artifact@v4
       with:
-        name: OrangeFox-Oukitel-WP19Pro
-        path: ~/fox_src/out/target/product/wp19pro/vendor_boot.img
+        name: OrangeFox-WP19Pro-VendorBoot
+        path: /home/runner/work/orangefox-build/orangefox-build/workspace/out/target/product/wp19pro/vendor_boot.img
