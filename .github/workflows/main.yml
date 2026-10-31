@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  MANIFEST_URL: "https://github.com" # Explicitly uses GitHub mirror networks to bypass GitLab 403 gates
+  MANIFEST_URL: "https://github.com"
   MANIFEST_BRANCH: "12.1"
   DEVICE_NAME: "wp19pro"
   DEVICE_PATH: "device/oukitel/wp19pro"
@@ -23,7 +23,7 @@ jobs:
     - name: Prepare Compilation Toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 wget repo
+        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 wget
 
     - name: Pull Core Partition Blocks
       run: |
@@ -50,13 +50,19 @@ jobs:
 
     - name: Sync OrangeFox Core Source Code
       run: |
-        mkdir ~/fox_src && cd ~/fox_src
+        # Create a local user bin directory that has full write/update permissions
+        mkdir -p ~/bin
+        curl -sL https://googleapis.com > ~/bin/repo
+        chmod a+x ~/bin/repo
+        export PATH=~/bin:$PATH
+        
+        mkdir -p ~/fox_src && cd ~/fox_src
         git config --global user.name "CloudBuilder"
         git config --global user.email "cloud@fox.local"
         
-        # Pulls manifest source codes securely from GitHub mirrors without network throttling
-        repo init --depth=1 -u ${{ env.MANIFEST_URL }} -b ${{ env.MANIFEST_BRANCH }}
-        repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+        # Initialize and sync using the full standalone mirror setup path
+        ~/bin/repo init --depth=1 -u ${{ env.MANIFEST_URL }} -b ${{ env.MANIFEST_BRANCH }}
+        ~/bin/repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Inject Device Tree & Extracted Kernel
       run: |
@@ -65,7 +71,7 @@ jobs:
 
     - name: Hardcode Physical Screen and Storage Parameters
       run: |
-        # Explicit hardware injection to map your 1080x2460 display resolution panel architecture
+        # Set target panel sizing definitions explicitly for your 1080x2460 display resolution configurations
         TARGET_CONFIG="~/fox_src/${{ env.DEVICE_PATH }}/BoardConfig.mk"
         eval TARGET_CONFIG=$TARGET_CONFIG
         echo "Injecting hardware specs into $TARGET_CONFIG..."
