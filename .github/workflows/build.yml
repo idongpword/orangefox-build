@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # Crucial permission flag required to publish releases and upload binary files
+  contents: write
 
 jobs:
   upload_assets:
@@ -17,15 +17,9 @@ jobs:
       run: |
         mkdir -p ./downloads
         
-        # Download your exact vendor_boot.img bypassing virus warnings
-        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
-        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
-        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=1djKC_mh-shcOT2BNAD_fC97xcFGCecDx" -o ./downloads/vendor_boot.img
-        
-        # Download your exact boot.img bypassing virus warnings
-        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
-        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
-        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=1ftWiBPzNWa_5t_4wJ4H1Ym1yY1P3vVJl" -o ./downloads/boot.img
+        # Hardcoded direct binary stream downloads bypassing confirmation walls entirely
+        curl -L "https://google.com" -o ./downloads/vendor_boot.img
+        curl -L "https://google.com" -o ./downloads/boot.img
 
     - name: Publish Stable Release Asset Gateway
       uses: softprops/action-gh-release@v2
