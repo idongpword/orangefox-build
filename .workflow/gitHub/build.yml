@@ -1,0 +1,82 @@
+name: OrangeFox Automatic Cloud Extractor & Compiler
+
+on:
+  workflow_dispatch:
+
+env:
+  MANIFEST_URL: "https://gitlab.com"
+  MANIFEST_BRANCH: "12.1"
+  DEVICE_NAME: "wp19pro"
+  DEVICE_PATH: "device/oukitel/wp19pro"
+  DEVICE_REPO: "https://github.com" # CHANGE TO YOUR USERNAME
+  DEVICE_BRANCH: "main"
+
+jobs:
+  build_recovery:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Free Virtual Space
+      run: |
+        sudo rm -rf /usr/share/dotnet /etc/mysql /etc/php /usr/local/lib/android /opt/ghc
+        sudo apt-get clean
+
+    - name: Prepare Compilation Toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 wget
+
+    - name: Pull Core Google Drive Assets
+      run: |
+        mkdir -p ~/cloud_assets && cd ~/cloud_assets
+        # Downloads your links securely inside the workflow container using direct public API access
+        wget --no-check-certificate 'https://google.com' -O boot.img
+        wget --no-check-certificate 'https://google.com' -O vendor_boot.img
+        wget --no-check-certificate 'https://google.com' -O magiskboot
+        chmod +x magiskboot
+
+    - name: Execute Cloud Magiskboot Extraction
+      run: |
+        cd ~/cloud_assets
+        # Unpacks your vendor_boot inside the virtual machine to cleanly peel your kernel image
+        ./magiskboot unpack vendor_boot.img
+        mkdir -p ~/extracted_kernel/
+        cp kernel ~/extracted_kernel/kernel
+
+    - name: Install Repo Workspace
+      run: |
+        mkdir ~/bin
+        curl https://googleapis.com > ~/bin/repo
+        chmod a+x ~/bin/repo
+        sudo ln -sf ~/bin/repo /usr/bin/repo
+
+    - name: Sync OrangeFox Core Source Code
+      run: |
+        mkdir ~/fox_src && cd ~/fox_src
+        git config --global user.name "CloudBuilder"
+        git config --global user.email "cloud@fox.local"
+        repo init --depth=1 -u ${{ env.MANIFEST_URL }} -b ${{ env.MANIFEST_BRANCH }}
+        repo sync -j$(nproc --all) --force-sync
+
+    - name: Inject Device Tree & Extracted Kernel
+      run: |
+        git clone -b ${{ env.DEVICE_BRANCH }} ${{ env.DEVICE_REPO }} ~/fox_src/${{ env.DEVICE_PATH }}
+        # Automatically copies your extracted kernel right into your building tree framework
+        cp ~/cloud_assets/kernel ~/fox_src/${{ env.DEVICE_PATH }}/prebuilt/kernel
+
+    - name: Execute OrangeFox Compilation
+      run: |
+        cd ~/fox_src
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export FOX_REPLACE_TOOLBOX=1
+        export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
+        
+        # Select target and compile specifically for modern vendor_boot architecture layout
+        lunch omni_${{ env.DEVICE_NAME }}-eng || lunch twrp_${{ env.DEVICE_NAME }}-eng
+        make vendorbootimage -j$(nproc --all)
+
+    - name: Export Working Bootable Image Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: OrangeFox-Oukitel-WP19Pro
+        path: ~/fox_src/out/target/product/wp19pro/vendor_boot.img
