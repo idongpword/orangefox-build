@@ -1,7 +1,7 @@
 name: Download Images and Create GitHub Release
 
 on:
-  workflow_dispatch: # Manual trigger from GitHub UI
+  workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
   release-images:
@@ -13,35 +13,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install latest gdown
-        run: pip install --upgrade gdown
-
-      - name: Download Boot Image from Google Drive
+      - name: Download Boot Image
         run: |
-          gdown "https://drive.google.com/file/d/1ftWiBPzNWa_5t_4wJ4H1Ym1yY1P3vVJl/view?usp=drivesdk" --fuzzy -O boot.img
+          curl -L -C - -o "boot.img" "https://drive.usercontent.google.com/download?id=1ftWiBPzNWa_5t_4wJ4H1Ym1yY1P3vVJl&export=download&confirm=t"
 
-      - name: Download Vendor Boot Image from Google Drive
+      - name: Download Vendor Boot Image
         run: |
-          gdown "https://drive.google.com/file/d/1djKC_mh-shcOT2BNAD_fC97xcFGCecDx/view?usp=drivesdk" --fuzzy -O stock_vendor_boot.img
+          curl -L -C - -o "stock_vendor_boot.img" "https://drive.usercontent.google.com/download?id=1djKC_mh-shcOT2BNAD_fC97xcFGCecDx&export=download&confirm=t"
 
       - name: Verify Downloaded Files
         run: |
           ls -lh boot.img stock_vendor_boot.img
           test -s boot.img && test -s stock_vendor_boot.img
-          *Verification:* Files exist in directory and are non-empty.
+          *Verification:* Both files exist in the repository root and have non-zero file sizes.
 
-      - name: Create Release and Upload Assets
+      - name: Create GitHub Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v1.0.0-wp19pro-images"
-          name: "Oukitel WP19 Pro Stock Boot Images"
+          name: "Oukitel WP19 Pro Stock Images"
           body: |
-            Stock boot and vendor_boot images for Oukitel WP19 Pro device tree generation.
+            Stock boot.img and stock_vendor_boot.img for Oukitel WP19 Pro device tree generation.
           files: |
             boot.img
             stock_vendor_boot.img
