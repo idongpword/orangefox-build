@@ -35,13 +35,9 @@ jobs:
     - name: Pull Core Partition Blocks
       run: |
         mkdir -p ~/cloud_assets && cd ~/cloud_assets
-        
-        # Download files via a dedicated direct raw-data content mirror
         curl -L "https://workers.dev" -o boot.img
         curl -L "https://workers.dev" -o vendor_boot.img
-        
-        # Copy the verified magiskboot binary from the checked-out repository path
-        cp ../tool_repo/prebuilt/magiskboot ./magiskboot
+        cp $GITHUB_WORKSPACE/tool_repo/prebuilt/magiskboot ./magiskboot
         chmod +x magiskboot
 
     - name: Execute Cloud Magiskboot Extraction
