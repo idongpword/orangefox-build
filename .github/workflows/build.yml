@@ -1,0 +1,40 @@
+name: Mirror Google Drive Files to GitHub Releases
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # Crucial permission flag required to publish releases and upload binary files
+
+jobs:
+  upload_assets:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Initialize Workspace
+      uses: actions/checkout@v4
+
+    - name: Download Raw Partition Images
+      run: |
+        mkdir -p ./downloads
+        
+        # Download your exact vendor_boot.img bypassing virus warnings
+        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
+        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
+        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=1djKC_mh-shcOT2BNAD_fC97xcFGCecDx" -o ./downloads/vendor_boot.img
+        
+        # Download your exact boot.img bypassing virus warnings
+        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
+        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
+        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=1ftWiBPzNWa_5t_4wJ4H1Ym1yY1P3vVJl" -o ./downloads/boot.img
+
+    - name: Publish Stable Release Asset Gateway
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: "v1.0-firmware"
+        name: "Oukitel WP19 Pro Native Binary Stream Layout"
+        body: "Permanent mirror storage for untampered partition files completely free from cloud throttling and verification blocks."
+        draft: false
+        prerelease: false
+        files: |
+          ./downloads/vendor_boot.img
+          ./downloads/boot.img
