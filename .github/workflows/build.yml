@@ -1,34 +1,45 @@
-name: Mirror Google Drive Files to GitHub Releases
+name: Download Images and Create GitHub Release
 
 on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  workflow_dispatch: # Allows you to trigger this manually from the Actions tab
 
 jobs:
-  upload_assets:
+  release-images:
     runs-on: ubuntu-latest
     steps:
-    - name: Initialize Workspace
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Download Raw Partition Images
-      run: |
-        mkdir -p ./downloads
-        
-        # Hardcoded direct binary stream downloads bypassing confirmation walls entirely
-        curl -L "https://google.com" -o ./downloads/vendor_boot.img
-        curl -L "https://google.com" -o ./downloads/boot.img
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Publish Stable Release Asset Gateway
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: "v1.0-firmware"
-        name: "Oukitel WP19 Pro Native Binary Stream Layout"
-        body: "Permanent mirror storage for untampered partition files completely free from cloud throttling and verification blocks."
-        draft: false
-        prerelease: false
-        files: |
-          ./downloads/vendor_boot.img
-          ./downloads/boot.img
+      - name: Install gdown
+        run: pip install gdown
+
+      - name: Download Boot Image from Google Drive
+        run: |
+          gdown --id 1ftWiBPzNWa_5t_4wJ4H1Ym1yY1P3vVJl -O boot.img
+
+      - name: Download Vendor Boot Image from Google Drive
+        run: |
+          gdown --id 1djKC_mh-shcOT2BNAD_fC97xcFGCecDx -O stock_vendor_boot.img
+
+      - name: Verify Downloaded Files
+        run: |
+          ls -lh boot.img stock_vendor_boot.img
+          *Verification:* Both files appear in the directory with non-zero file sizes.
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: device-images-v1.0
+          name: "Oukitel WP19 Pro - Boot & Vendor Boot"
+          body: |
+            Automatic release containing stock boot and vendor_boot images for Oukitel WP19 Pro device tree generation.
+          files: |
+            boot.img
+            stock_vendor_boot.img
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
