@@ -1,13 +1,13 @@
 name: Download Images and Create GitHub Release
 
 on:
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   release-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Grants permission to create GitHub Releases
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -24,8 +24,8 @@ jobs:
       - name: Verify Downloaded Files
         run: |
           ls -lh boot.img stock_vendor_boot.img
-          test -s boot.img && test -s stock_vendor_boot.img
-          *Verification:* Both files exist in the repository root and have non-zero file sizes.
+          test -s boot.img
+          test -s stock_vendor_boot.img
 
       - name: Create GitHub Release and Upload Assets
         uses: softprops/action-gh-release@v2
