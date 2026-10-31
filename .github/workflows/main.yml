@@ -8,7 +8,7 @@ env:
   MANIFEST_BRANCH: "12.1"
   DEVICE_NAME: "wp19pro"
   DEVICE_PATH: "device/oukitel/wp19pro"
-  DEVICE_REPO: "https://github.com" # CHANGE TO YOUR USERNAME
+  DEVICE_REPO: "https://github.com"
   DEVICE_BRANCH: "main"
 
 jobs:
@@ -28,16 +28,27 @@ jobs:
     - name: Pull Core Google Drive Assets
       run: |
         mkdir -p ~/cloud_assets && cd ~/cloud_assets
-        # Downloads your links securely inside the workflow container using direct public API access
-        wget --no-check-certificate 'https://google.com' -O boot.img
-        wget --no-check-certificate 'https://google.com' -O vendor_boot.img
-        wget --no-check-certificate 'https://google.com' -O magiskboot
+        
+        # Download boot.img bypassing Google Drive confirmation warning
+        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
+        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
+        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=1ftWiBPzNWa_5t_4wJ4H1Ym1yY1P3vVJl" -o boot.img
+        
+        # Download vendor_boot.img bypassing confirmation warning
+        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
+        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
+        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=1djKC_mh-shcOT2BNAD_fC97xcFGCecDx" -o vendor_boot.img
+        
+        # Download magiskboot bypassing confirmation warning
+        curl -sc /tmp/cookie.txt "https://google.com" > /dev/null
+        CONFIRM=$(awk '/_warning_/ {print $5}' /tmp/cookie.txt)
+        curl -Lb /tmp/cookie.txt "https://google.com{CONFIRM}&id=103B4EXdrz5KQr4uRx0RDfQwmG-G9kObW" -o magiskboot
+        
         chmod +x magiskboot
 
     - name: Execute Cloud Magiskboot Extraction
       run: |
         cd ~/cloud_assets
-        # Unpacks your vendor_boot inside the virtual machine to cleanly peel your kernel image
         ./magiskboot unpack vendor_boot.img
         mkdir -p ~/extracted_kernel/
         cp kernel ~/extracted_kernel/kernel
@@ -60,7 +71,6 @@ jobs:
     - name: Inject Device Tree & Extracted Kernel
       run: |
         git clone -b ${{ env.DEVICE_BRANCH }} ${{ env.DEVICE_REPO }} ~/fox_src/${{ env.DEVICE_PATH }}
-        # Automatically copies your extracted kernel right into your building tree framework
         cp ~/cloud_assets/kernel ~/fox_src/${{ env.DEVICE_PATH }}/prebuilt/kernel
 
     - name: Execute OrangeFox Compilation
@@ -71,7 +81,6 @@ jobs:
         export FOX_REPLACE_TOOLBOX=1
         export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
         
-        # Select target and compile specifically for modern vendor_boot architecture layout
         lunch omni_${{ env.DEVICE_NAME }}-eng || lunch twrp_${{ env.DEVICE_NAME }}-eng
         make vendorbootimage -j$(nproc --all)
 
