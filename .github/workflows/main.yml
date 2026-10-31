@@ -28,7 +28,7 @@ jobs:
     - name: Checkout Tooling Repo
       uses: actions/checkout@v4
       with:
-        repository: 'idongpw/android_device_oukitel_wp19pro'
+        repository: 'idongpword/android_device_oukitel_wp19pro'
         ref: 'fox_12.1'
         path: 'tool_repo'
 
