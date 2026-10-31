@@ -25,25 +25,32 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3 wget
 
-    - name: Checkout Tooling Repo
-      uses: actions/checkout@v4
-      with:
-        repository: 'idongpword/android_device_oukitel_wp19pro'
-        ref: 'fox_12.1'
-        path: 'tool_repo'
-
     - name: Pull Core Partition Blocks
       run: |
         mkdir -p ~/cloud_assets && cd ~/cloud_assets
+        
+        # Download files via a dedicated direct raw-data content mirror
         curl -L "https://workers.dev" -o boot.img
         curl -L "https://workers.dev" -o vendor_boot.img
-        cp $GITHUB_WORKSPACE/tool_repo/prebuilt/magiskboot ./magiskboot
-        chmod +x magiskboot
 
-    - name: Execute Cloud Magiskboot Extraction
+    - name: Native Python Kernel Extraction
       run: |
         cd ~/cloud_assets
-        ./magiskboot unpack vendor_boot.img
+        
+        # A 100% native toolless script that slices out the kernel from the boot header
+        python3 -c '
+        import struct
+        with open("boot.img", "rb") as f:
+            header = f.read(4096)
+            # Read kernel size from standard Android Boot V3/V4 Header layout specs (offset 12)
+            kernel_size = struct.unpack("<I", header[12:16])[0]
+            print(f"Detected Kernel Size: {kernel_size} bytes")
+            f.seek(4096)
+            kernel_data = f.read(kernel_size)
+            
+        with open("kernel", "wb") as out:
+            out.write(kernel_data)
+        '
         mkdir -p ~/extracted_kernel/
         cp kernel ~/extracted_kernel/kernel
 
